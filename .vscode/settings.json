@@ -1,0 +1,58 @@
+{
+  "eslint.validate": [
+    {
+      "language": "javascript",
+      "autoFix": true
+    },
+    {
+      "language": "javascriptreact",
+      "autoFix": true
+    },
+    {
+      "language": "typescript",
+      "autoFix": true
+    },
+    {
+      "language": "typescriptreact",
+      "autoFix": true
+    }
+  ],
+  "eslint.autoFixOnSave": true,
+  "eslint.packageManager": "yarn",
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "prettier.singleQuote": true,
+  "cSpell.words": [
+    "antd",
+    "balham",
+    "browserconfig",
+    "cacheable",
+    "commentable",
+    "doesn",
+    "finswash",
+    "fintastic",
+    "focusable",
+    "followable",
+    "latlng",
+    "linkify",
+    "mapsvg",
+    "msapplication",
+    "newevents",
+    "popconfirm",
+    "sendgrid",
+    "seperator",
+    "set",
+    "set seperator",
+    "sider",
+    "taggings",
+    "uploader",
+    "uploaders",
+    "wordpress",
+    "wp",
+    "xlink",
+    "youtube"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  }
+}
