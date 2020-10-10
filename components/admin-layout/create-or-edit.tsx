@@ -18,6 +18,7 @@ interface CreateOrEditProps {
   modelPlural: string;
   preFormContent?: any;
   onData?: (data: any) => void;
+  getName?: (data: any) => string;
 }
 
 const CreateOrEdit: React.FC<CreateOrEditProps> = ({
@@ -26,7 +27,8 @@ const CreateOrEdit: React.FC<CreateOrEditProps> = ({
   modelPlural,
   children,
   preFormContent,
-  onData
+  onData,
+  getName = (data) => data?.name
 }) => {
   const router = useRouter();
   const { user } = useContext(UserContext);
@@ -132,7 +134,7 @@ const CreateOrEdit: React.FC<CreateOrEditProps> = ({
     <AdminLayout>
       <PageHeader
         onBack={() => Router.back()}
-        title={modelData?.name || `New ${capsSingular}`}
+        title={getName(modelData) || `New ${capsSingular}`}
         subTitle={`ID: ${modelData?.id || 'NEW'}`}
         style={{ padding: 0, marginBottom: '32px' }}
       />

@@ -21,7 +21,9 @@
     "db:create": "sequelize db:create",
     "db:seed": "sequelize db:seed:all",
     "db:seed:rollback": "sequelize db:seed:undo",
-    "db:seed:rollback:all": "sequelize db:seed:undo:all"
+    "db:seed:rollback:all": "sequelize db:seed:undo:all",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@ant-design/icons": "^4.2.1",
@@ -83,9 +85,12 @@
     "@storybook/addons": "^5.2.8",
     "@storybook/react": "^5.2.8",
     "@storybook/theming": "^5.2.8",
+    "@testing-library/jest-dom": "^5.11.4",
+    "@testing-library/react": "^11.0.4",
     "@types/aws-sdk": "^2.7.0",
     "@types/bcrypt": "^3.0.0",
     "@types/formidable": "^1.0.31",
+    "@types/jest": "^26.0.14",
     "@types/jsonwebtoken": "^8.5.0",
     "@types/lodash": "^4.14.159",
     "@types/luxon": "^1.24.1",
@@ -104,12 +109,15 @@
     "eslint": "^6.7.2",
     "eslint-config-prettier": "^6.7.0",
     "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-jest": "^24.0.2",
     "eslint-plugin-prettier": "^3.1.1",
     "eslint-plugin-react": "^7.17.0",
     "eslint-plugin-react-hooks": "^3.0.0",
     "eslint-plugin-simple-import-sort": "^5.0.2",
+    "jest": "^26.4.2",
     "prettier": "^1.19.1",
     "react-docgen-typescript-loader": "^3.6.0",
+    "ts-jest": "^26.4.0",
     "ts-loader": "^6.2.1"
   }
 }

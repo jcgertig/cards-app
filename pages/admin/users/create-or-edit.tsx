@@ -23,6 +23,7 @@ const CreateOrEditUsers: React.FC<{ id?: number }> = ({ id }) => {
       id={id}
       modelPlural="users"
       modelSingular="user"
+      getName={(data) => data?.username}
       preFormContent={
         <div style={{ margin: '12px 0 32px' }}>
           <Button icon={<UploadOutlined />} shape="round" type="dashed">
@@ -101,13 +102,15 @@ const CreateOrEditUsers: React.FC<{ id?: number }> = ({ id }) => {
           />
         </Item>
       ) : null}
-      <Select>
-        {UserRolesMapping.asOptions.map(({ value, label }) => (
-          <Select.Option key={label} value={value}>
-            {label}
-          </Select.Option>
-        ))}
-      </Select>
+      <Item name="role" label="Role">
+        <Select>
+          {UserRolesMapping.asOptions.map(({ value, label }) => (
+            <Select.Option key={label} value={value}>
+              {label}
+            </Select.Option>
+          ))}
+        </Select>
+      </Item>
     </CreateOrEdit>
   );
 };

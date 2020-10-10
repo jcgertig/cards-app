@@ -15,7 +15,8 @@ module.exports = {
   env: {
     browser: true,
     node: true,
-    es6: true
+    es6: true,
+    'jest/globals': true
   },
   parserOptions: {
     ecmaFeatures: {
@@ -25,6 +26,7 @@ module.exports = {
     sourceType: 'module' // Allows for the use of imports
   },
   plugins: [
+    'jest',
     '@typescript-eslint',
     'import',
     'prettier',
