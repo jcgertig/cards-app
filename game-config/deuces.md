@@ -33,7 +33,7 @@
       - can skip: true
       - can play after skip: true
       - guards: [ [player] [played] [cards(s)] [count] [matches] [previous] [player] [played] [cards(s)] [count] ] [and] [ [player] [played] [cards(s)] [value] [greater then] [previous] [player] [played] [cards(s)] [value] ] [and] [ [if] [player] [hand] [card(s)] [count] [matches] [0] _then_ [player] [played] [card(s)] [unit] [not contains] [2] ]
-    - Win Conditions: [ [player] [hand] [cards] [count] ] [or] [ [not if] [all] [player] [hand] [cards] [count] [not contains] [0] _then_ [player] [skipped] [matches] [false] ]
+    - Win Conditions: [ [player] [hand] [cards] [count] [matches] [0] ] [or] [ [not if] [all] [player] [hand] [cards] [count] [not contains] [0] _then_ [player] [skipped] [matches] [false] ]
     - Complete Conditions: [ [all] [player] [hand] [cards] [count] [contains] [0] ] [or] [ [ [filter] [all] [player] [skipped] _by_ [matches] [true] ] [count] ] [matches] [3]
     - Pass Cards: None
     - Deal: All
@@ -52,7 +52,7 @@
       - can skip: true
       - can play after skip: true
       - guards: [ [player] [played] [cards(s)] [count] [matches] [previous] [player] [played] [cards(s)] [count] ] [and] [ [player] [played] [cards(s)] [value] [greater then] [previous] [player] [played] [cards(s)] [value] ] [and] [ [if] [player] [hand] [card(s)] [count] [matches] [0] _then_ [player] [played] [card(s)] [unit] [not contains] [2] ]
-    - Win Conditions: [ [player] [hand] [cards] [count] ] [or] [ [not if] [all] [player] [hand] [cards] [count] [not contains] [0] _then_ [player] [skipped] [matches] [false] ]
+    - Win Conditions: [ [player] [hand] [cards] [count] [matches] [0] ] [or] [ [not if] [all] [player] [hand] [cards] [count] [not contains] [0] _then_ [player] [skipped] [matches] [false] ]
     - Complete Conditions: [ [all] [player] [hand] [cards] [count] [contains] [0] ] [or] [ [ [filter] [all] [player] [skipped] _by_ [matches] [true] ] [count] ] [matches] [3]
     - Pass Cards: None
     - Deal: All
