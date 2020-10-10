@@ -45,7 +45,7 @@
     - Player to start plays:
       - hands: [single, pair, three of a kind, or poker hand]
       - can skip: false
-      - guard: [if] [hand] [card(s)] [count] [matches] [0] _and_ [played] [card(s)] [not contains] [2D, 2C, 2S, 2H]
+      - guard: [if] [player] [hand] [card(s)] [count] [matches] [0] _then_ [player] [played] [card(s)] [unit] [2]
     - Next player: [clockwise]
     - Following players can play:
       - hands: [single, pair, three of a kind, poker hand]
