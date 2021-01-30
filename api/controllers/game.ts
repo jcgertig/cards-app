@@ -1,4 +1,5 @@
 import { UserRolesMapping } from '../../lib/enum-mappings';
+import { IGameState } from '../../lib/logic/game';
 import { setCheck } from '../../lib/utils/checks';
 import { DBInstanceBase, IModels } from '../../models/db.tables';
 import { GeneralError, UnauthorizedError } from '../utils/errors';
@@ -7,13 +8,35 @@ import { check, IValidateSchema } from '../utils/validate';
 import { ISession } from './session';
 import { IUser } from './user';
 
+export interface IGameAction {
+  type:
+    | 'play'
+    | 'pass'
+    | 'draw'
+    | 'skip'
+    | 'discard'
+    | 'place'
+    | 'call'
+    | 'done';
+  args?: any;
+  userId: number;
+  date: string;
+}
+
 export interface IGame extends DBInstanceBase {
   name: string;
   type: number;
-  state: any;
-  history: any;
+  state: IGameState | null;
+  history: Array<IGameAction> | null;
   userId?: number;
-  user?: IUser;
+  owner?: IUser;
+  members?: Array<IGameUser>;
+}
+
+export interface IGameUser extends DBInstanceBase {
+  gameId: number;
+  userId: number;
+  status: number;
 }
 
 export interface GameCreateArgs {
@@ -24,19 +47,34 @@ export interface GameCreateArgs {
   userId?: number;
 }
 
-export type UpdateGameArgs = Omit<GameCreateArgs, 'type'>;
+export interface GameUserCreateArgs {
+  gameId: number;
+  userId: number;
+  status?: number;
+}
+
+export type UpdateGameArgs = Partial<Omit<GameCreateArgs, 'type'>>;
 
 export const GamePolicy = pundit({
   create: () => true,
   update: (user, game) =>
     game.userId === user.id || [UserRolesMapping.Admin].includes(user.role),
   delete: (user, game) =>
-    game.userId === user.id || [UserRolesMapping.Admin].includes(user.role)
+    game.userId === user.id || [UserRolesMapping.Admin].includes(user.role),
+  action: (user, game: IGame) =>
+    (game.members ? game.members.findIndex((i) => i.userId === user.id) : -1) >
+      -1 || [UserRolesMapping.Admin].includes(user.role)
 });
 
 export const gameSchema: IValidateSchema = {
   name: check({ required: true, method: 'isAscii' }),
   type: check({ required: true, method: setCheck([0]) })
+};
+
+export const gameUpdateSchema: IValidateSchema = {
+  name: check({ required: false, method: 'isAscii' }),
+  state: check({ required: false, method: 'isJSON' }),
+  history: check({ required: false, method: 'isJSON' })
 };
 
 export async function createGame(

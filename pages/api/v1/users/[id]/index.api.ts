@@ -1,5 +1,6 @@
 import {
   updateUser,
+  UserAttributes,
   userUpdateSchema
 } from '../../../../../api/controllers/user';
 import routeHandler from '../../../../../api/utils/route-handler';
@@ -14,9 +15,7 @@ export default routeHandler(
           where: {
             id: req.query.id
           },
-          attributes: {
-            exclude: ['password', 'resetPasswordToken', 'resetPasswordSentAt']
-          }
+          attributes: UserAttributes
         })
       );
     } else if (req.method === 'PUT') {

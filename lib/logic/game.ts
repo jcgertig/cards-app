@@ -22,7 +22,7 @@ interface IGameOptions {
   options: IGameState;
 }
 
-interface IGameState {
+export interface IGameState {
   config: IGameConfig;
   playerIds: Array<number>;
   points: Array<number>;
@@ -91,6 +91,10 @@ export default class Game {
     return typeof this.currentRound.winner === 'number'
       ? this.playerIds[this.currentRound.winner]
       : undefined;
+  }
+
+  get isActive() {
+    return typeof this.currentRound !== 'undefined' && !this.winner;
   }
 
   get currentPlayerId() {

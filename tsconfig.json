@@ -3,7 +3,11 @@
     "allowSyntheticDefaultImports": true,
     "target": "es5",
     "downlevelIteration": true,
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -13,7 +17,7 @@
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": false,
+    "isolatedModules": true,
     "noImplicitAny": false,
     "strictPropertyInitialization": true,
     "strictBindCallApply": true,
@@ -21,6 +25,12 @@
     "strictNullChecks": true,
     "jsx": "preserve"
   },
-  "exclude": ["node_modules"],
-  "include": ["next-env.d.ts", "./**/*.ts", "./**/*.tsx"]
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "next-env.d.ts",
+    "./**/*.ts",
+    "./**/*.tsx"
+  ]
 }

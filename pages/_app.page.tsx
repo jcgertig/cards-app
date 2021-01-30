@@ -26,6 +26,8 @@ function Loading() {
   );
 }
 
+const nonAuthRoutes = ['/', '/login', '/sign-up', '/password-reset'];
+
 export default function App({ Component, pageProps, router }) {
   const user = getUserFromStorage();
   const setComponentAndRedirect = () => {
@@ -34,13 +36,8 @@ export default function App({ Component, pageProps, router }) {
       window.location.href = window.location.origin;
     }
   };
-  if (
-    !user &&
-    router.route !== '/' &&
-    router.route !== '/login' &&
-    router.route !== '/sign-up'
-  ) {
-    setComponentAndRedirect();
+  if (!user && !nonAuthRoutes.includes(router.route)) {
+    // setComponentAndRedirect();
   } else if (
     (!user || user.role !== 1) &&
     router.route.indexOf('/admin') === 0

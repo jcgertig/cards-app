@@ -7,8 +7,9 @@ export const UserRolesMapping = optionsObject({
   Admin: 1
 });
 
-export type GameTypes = 0 | number;
+export type GameTypes = 0 | 1 | number;
 
 export const GameTypesMapping = optionsObject({
-  Deuces: 0
+  Deuces: 0,
+  Hearts: 1
 });

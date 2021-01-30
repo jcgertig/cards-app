@@ -72,6 +72,24 @@ export const UserPolicy = pundit({
   updateRole: (user) => [UserRolesMapping.Admin].includes(user.role)
 });
 
+export const UserAttributes = {
+  exclude: ['password', 'resetPasswordToken', 'resetPasswordSentAt']
+};
+
+export const SimpleUserAttributes = {
+  exclude: [
+    'password',
+    'resetPasswordToken',
+    'resetPasswordSentAt',
+    'updatedAt',
+    'confirmationSentAt',
+    'confirmationToken',
+    'signInCount',
+    'lastSignInAt',
+    'email'
+  ]
+};
+
 export async function getUser(
   db: IModels,
   slug: string,
@@ -80,9 +98,10 @@ export async function getUser(
     | 'username'
     | 'email'
     | 'confirmationToken'
-    | 'resetPasswordToken' = 'id'
+    | 'resetPasswordToken' = 'id',
+  attributes?: any
 ) {
-  return await db.Users.findOne({ where: { [key]: slug } });
+  return await db.Users.findOne({ where: { [key]: slug }, attributes });
 }
 
 const profaneFilter = new BadWordsFilter();

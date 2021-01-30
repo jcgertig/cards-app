@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+import { GameTypesMapping } from '../../../lib/enum-mappings';
+import { IGame } from '../../controllers/game';
 import { IUser } from '../../controllers/user';
 import { IConfig } from '../general-types';
 import { emailTemplate } from './template';
@@ -51,4 +53,24 @@ export const passwordChanged = async (config: IConfig, to: IUser) => {
     blockTwoText: `We're contacting you to notify you that your password has been changed.`
   });
   return await sendMail(config, to.email, 'Password changed', body);
+};
+
+export const gameInvite = async (
+  config: IConfig,
+  game: IGame,
+  to: Array<string>
+) => {
+  const body = emailTemplate({
+    actionLabel: `Join ${game.name}`,
+    actionUrl: `${config.ui}/invite/${game.id}`,
+    blockOneText: `Hello,`,
+    blockTwoText: `You have been invited ${
+      game.owner?.username ? `by ${game.owner?.username} ` : ''
+    }to play a game of ${GameTypesMapping[game.type]}.`
+  });
+  return await Promise.all(
+    to.map((email) =>
+      sendMail(config, email, `Invited to join ${game.name}`, body)
+    )
+  );
 };

@@ -18,6 +18,10 @@ export default (sequelize: Sequelize) => {
       as: 'owner',
       foreignKey: 'userId'
     });
+    Games.hasMany(models.GameUsers, {
+      as: 'members',
+      foreignKey: 'gameId'
+    });
   };
 
   return Games;

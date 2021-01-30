@@ -1,6 +1,7 @@
 import { Model, ModelCtor, Sequelize } from 'sequelize';
 
 import { CommentModel } from './comments';
+import { GameUserModel } from './game-users';
 import { GameModel } from './games';
 import { UserModel } from './users';
 
@@ -29,6 +30,7 @@ export interface ITables {
   Comments: ModelCtor<CommentModel>;
   Games: ModelCtor<GameModel>;
   Users: ModelCtor<UserModel>;
+  GameUsers: ModelCtor<GameUserModel>;
 }
 
 export interface IModels extends ITables {
@@ -50,6 +52,7 @@ export function getModels(seq: Sequelize): ITables {
   return {
     Comments: load<CommentModel>('comments'),
     Games: load<GameModel>('games'),
-    Users: load<UserModel>('users')
+    Users: load<UserModel>('users'),
+    GameUsers: load<GameUserModel>('game-users')
   };
 }
