@@ -1,10 +1,10 @@
 import { isEqual, isUndefined } from 'lodash';
 
-import { LevelValueSymbol } from './game';
+import { DataValueSymbol } from './game';
 import {
   IBooleanConditional,
-  IConditional,
   IPureMathConditional,
+  IResolveConditional,
   IValueConditional
 } from './types';
 
@@ -17,11 +17,11 @@ const get = (val: any, keys: Array<string | number>) => {
     if (isUndefined(val)) return undefined;
     data = val;
   }
-  return data[LevelValueSymbol]; // LevelValueSymbol is a key word in the value proxy
+  return data[DataValueSymbol]; // DataValueSymbol is a key word in the value proxy
 };
 
 export function resolveCheck(
-  conditional: IConditional | string | number | boolean | Array<any>,
+  conditional: IResolveConditional,
   baseData: any | (() => any),
   other?: any
 ): string | boolean | number | any | undefined {
@@ -73,14 +73,11 @@ export function resolveCheck(
         return false;
       case 'if':
         if (resolveCheck(conditional.left, baseData, other)) {
-          return resolveCheck(conditional.right, baseData, other);
+          return resolveCheck(conditional.right.then, baseData, other);
         }
-        return true;
-      case 'not if':
-        if (resolveCheck(conditional.left, baseData, other)) {
-          return resolveCheck(conditional.right, baseData, other);
-        }
-        return false;
+        return conditional.right.else
+          ? resolveCheck(conditional.right.else, baseData, other)
+          : true;
       case '=':
         return isEqual(
           resolveCheck(conditional.left, baseData, other),
@@ -231,6 +228,14 @@ export function resolveCheck(
         ) as any;
         return Math.max(...list);
       }
+      case 'abs': {
+        const value: number = resolveCheck(
+          conditional.right as any,
+          baseData,
+          other
+        ) as any;
+        return Math.abs(value);
+      }
       case 'floor': {
         const value: number = resolveCheck(
           conditional.right as any,
@@ -255,6 +260,27 @@ export function resolveCheck(
         ) as any;
         return value.length;
       }
+      case 'first': {
+        const value: Array<any> = resolveCheck(
+          conditional.right as any,
+          baseData,
+          other
+        ) as any;
+        return value[0];
+      }
+      case 'last': {
+        const value: Array<any> = resolveCheck(
+          conditional.right as any,
+          baseData,
+          other
+        ) as any;
+        return value.length > 0 ? value[value.length - 1] : undefined;
+      }
+      case 'value if':
+        if (resolveCheck(conditional.left, baseData, other)) {
+          return resolveCheck(conditional.right.then, baseData, other);
+        }
+        return resolveCheck(conditional.right.else, baseData, other);
       case 'filter':
         return filterConditional(conditional.left, conditional.right);
 

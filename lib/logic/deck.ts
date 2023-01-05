@@ -1,4 +1,9 @@
-import { IDeckConfig, PokerCards, PokerSuits } from '../game-config';
+import {
+  IDeckConfig,
+  IPokerCardPointValues,
+  PokerCards,
+  PokerSuits
+} from '../game-config';
 
 const POKER_SUITS = ['S', 'H', 'C', 'D'];
 const POKER_UNITS = [
@@ -28,57 +33,118 @@ function shuffle(array) {
   return array;
 }
 
+function pokerPriority(cardPriority?: 'standard' | Array<PokerCards>) {
+  if (!cardPriority || cardPriority === 'standard') return [...POKER_UNITS];
+  return cardPriority;
+}
+
+function pokerSuitPriority(suitPriority?: 'standard' | Array<PokerSuits>) {
+  if (!suitPriority || suitPriority === 'standard') return [...POKER_SUITS];
+  return suitPriority;
+}
+
+function pokerPointValue(
+  values: number | IPokerCardPointValues | undefined,
+  unit: string
+) {
+  if (typeof values === 'number') return values;
+  if (typeof values === 'undefined') return 0;
+  return values[unit];
+}
+
 export class Card {
+  private deckConfig: IDeckConfig;
   name: string;
   suit: string = '';
   unit: string = '';
   pointValue: number = 0;
-  value: number = 0;
-  suitPriority: number = 0;
   unitPriority: number = 0;
-  pokerPriority: number = 0;
 
-  constructor(name: string, deckConfig: IDeckConfig) {
+  get value() {
+    if (this.deckConfig.type === 'poker') {
+      const cardPriority = pokerPriority(this.deckConfig.cardPriority);
+      const suitPriority = pokerSuitPriority(this.deckConfig.suitPriority);
+      return (
+        (cardPriority.length - this.unitPriority - 1) * 10 +
+        (this.suit ? suitPriority.length - this.suitPriority - 1 : 0)
+      );
+    }
+    return 0;
+  }
+
+  get pokerPriority() {
+    if (this.deckConfig.type === 'poker') {
+      return POKER_UNITS.indexOf(this.unit);
+    }
+    return 0;
+  }
+
+  get suitPriority() {
+    if (this.deckConfig.type === 'poker') {
+      return pokerSuitPriority(this.deckConfig.suitPriority).indexOf(
+        this.suit as PokerSuits
+      );
+    }
+    return 0;
+  }
+
+  constructor(
+    name: string,
+    deckConfig: IDeckConfig = { count: 1, type: 'poker' }
+  ) {
+    this.deckConfig = deckConfig;
     this.name = name;
-    if (deckConfig.type === 'poker') {
+    if (this.deckConfig.type === 'poker') {
       for (const suit of POKER_SUITS) {
         if (suit === name.slice(0 - suit.length)) {
           this.suit = suit;
           this.unit = name.slice(0, name.length - suit.length);
-          const map = deckConfig.cardPointValues[this.unit];
+          const map = pokerPointValue(
+            this.deckConfig.cardPointValues,
+            this.unit
+          );
+          const cardPriority = pokerPriority(this.deckConfig.cardPriority);
           this.pointValue = typeof map === 'number' ? map : map[this.suit];
-          this.unitPriority = deckConfig.cardPriority.indexOf(
-            this.unit as PokerCards
-          );
-          this.suitPriority = deckConfig.suitPriority.indexOf(
-            this.suit as PokerSuits
-          );
-          this.pokerPriority = POKER_UNITS.indexOf(this.unit);
-          this.value =
-            (deckConfig.cardPriority.length - this.unitPriority - 1) * 10 +
-            (this.suit
-              ? deckConfig.suitPriority.length - this.suitPriority - 1
-              : 0);
+          this.unitPriority = cardPriority.indexOf(this.unit as PokerCards);
         }
       }
     }
   }
 }
 
+function cardsForDeck(config: IDeckConfig) {
+  let cards: Array<string> = [];
+  if (config.type === 'poker') {
+    cards = [...POKER_CARDS];
+    if (config.joker) {
+      cards = [...cards, ...new Array(config.joker.count || 0).fill('Joker')];
+    }
+  } else if (config.type === 'hwatu') {
+    // todo handle hwatu decks
+  }
+  return cards;
+}
+
 export class Deck {
   private cards: Array<string> = [];
   private left: Array<string> = [];
 
-  constructor(config: IDeckConfig) {
-    if (config.type === 'poker') {
-      let cards = [...POKER_CARDS];
-      if (config.joker) {
-        cards = [...cards, ...new Array(config.joker.count).fill('Joker')];
+  private config: IDeckConfig;
+
+  constructor(config: IDeckConfig = { count: 1, type: 'poker' }) {
+    this.config = config;
+    this.cards = cardsForDeck(config);
+    if (typeof config.count === 'number' && config.count > 1) {
+      let addCount = config.count - 1;
+      while (addCount > 0) {
+        addCount -= 1;
+        this.cards = [...this.cards, ...cardsForDeck(config)];
       }
-      this.cards = cards;
-    } else if (config.type === 'hwatu') {
-      // todo handle hwatu decks
     }
+  }
+
+  get cardsLeft() {
+    return this.left.map((v) => new Card(v, this.config));
   }
 
   createAndShuffle = (count: number) => {

@@ -1,4 +1,8 @@
-import { IBooleanConditional, IMathConditional } from './logic/types';
+import {
+  IBooleanConditional,
+  IMathConditional,
+  IResolveConditional
+} from './logic/types';
 
 /**
  * Support face down cards on table / collection
@@ -45,17 +49,21 @@ export interface IPokerCardPointValues {
 
 export type IDeckType = 'poker' | 'hwatu';
 
-export interface IPokerDeckConfig {
+interface IDeckConfigBase {
+  count?: number;
+}
+
+export interface IPokerDeckConfig extends IDeckConfigBase {
   type: 'poker';
-  suitPriority: Array<PokerSuits>;
-  cardPriority: Array<PokerCards>;
-  cardPointValues: IPokerCardPointValues;
+  suitPriority?: 'standard' | Array<PokerSuits>; // defaults to 'standard'
+  cardPriority?: 'standard' | Array<PokerCards>; // defaults to 'standard'
+  cardPointValues?: number | IPokerCardPointValues; // defaults to 0
   joker?: {
-    count: 0;
+    count: number;
     role: 'wild' | 'point';
   };
 }
-export interface IHwatuDeckConfig {
+export interface IHwatuDeckConfig extends IDeckConfigBase {
   type: 'hwatu';
   // todo hwatu deck config
 }
@@ -73,17 +81,29 @@ export type INextDirection =
 
 export type IPlayTarget = 'table' | 'collection' | 'other-collection';
 
-export interface IRoundPlayConditions {
-  hands: Array<IValidHands>;
-  guards?: IBooleanConditional;
+export interface IRoundPlayCanConditions {
+  canCall?: boolean | IBooleanConditional; // default false
   canSkip?: boolean | IBooleanConditional; // default false
+  canDraw?: boolean | IBooleanConditional; // default false
+  canPlay?: boolean | IBooleanConditional; // default true
+  canPass?: boolean | IBooleanConditional; // default false
+  canPlace?: boolean | IBooleanConditional; // default false
+  canDiscard?: boolean | IBooleanConditional; // default false
   canPlayAfterSkip?: boolean | IBooleanConditional; // default false
 }
+export interface IRoundPlayConditions extends IRoundPlayCanConditions {
+  hands: Array<IValidHands>;
+  guards?: IBooleanConditional;
+}
 
-export interface IRoundsConfig {
-  newDeck: boolean | IBooleanConditional; // default true
-  firstPlayerConditions: IBooleanConditional;
-  firstPlayerPlayConditions: IRoundPlayConditions;
+export type IPlayerContextValue = string | number | boolean;
+export interface IPlayerContext {
+  [key: string]: IPlayerContextValue;
+}
+
+export interface ISubRoundsConfig {
+  firstPlayerConditions?: IBooleanConditional; // default to deal dir next user from dealer
+  firstPlayerPlayConditions?: IRoundPlayConditions;
   nextPlayer: {
     direction?: INextDirection;
     guards?: IBooleanConditional;
@@ -91,26 +111,37 @@ export interface IRoundsConfig {
   playerPlayConditions: IRoundPlayConditions;
   winConditions: IBooleanConditional;
   completeConditions: IBooleanConditional;
+  place?: {
+    guards?: IBooleanConditional;
+  };
+  play?: {
+    target?: Array<IPlayTarget>;
+  };
+  collectionVisible?: boolean;
+}
+
+export type OrderEntryConfig<T = any> = {
+  '*'?: T;
+  odd?: T;
+  even?: T;
+  [key: string]: T | undefined; // should be a number key
+};
+
+export interface IRoundsConfig extends ISubRoundsConfig {
+  newDeck?: boolean | IBooleanConditional; // default true
   passCards?: {
-    direction: Array<INextDirection>;
+    order: OrderEntryConfig<INextDirection>;
+    loopOrder?: boolean; // defaults true;
     count: number;
   };
-  deal:
+  deal?:
     | 'all'
     | {
-        order: {
-          '*'?: {
-            perPerson?: number;
-            toTable?: number;
-          };
-          [key: string]: // should be a number key
-          | {
-                perPerson?: number;
-                toTable?: number;
-              }
-            | undefined;
-        };
-      };
+        order: OrderEntryConfig<{
+          perPerson?: IMathConditional | number;
+          toTable?: IMathConditional | number;
+        }>;
+      }; // defaults to 'all'
   discard?: {
     count: number;
   };
@@ -123,13 +154,10 @@ export interface IRoundsConfig {
     count: number;
     target?: Array<'deck' | 'discard'>;
   };
-  place?: {
-    guards?: IBooleanConditional;
+  defaultPlayerContext?: IPlayerContext;
+  subRounds?: {
+    order: OrderEntryConfig<ISubRoundsConfig>;
   };
-  play?: {
-    target?: Array<IPlayTarget>;
-  };
-  collectionVisible?: boolean;
 }
 
 export interface IGameConfig {
@@ -137,22 +165,22 @@ export interface IGameConfig {
     min: number;
     max: number;
   };
-  deck: {
-    count: number | IMathConditional;
-  } & IDeckConfig;
-  customCardGroups?: { [key: string]: IBooleanConditional };
-  customConditions?: { [key: string]: IBooleanConditional };
+  deck?: {
+    count?: number | IMathConditional; // defaults to 1
+  } & IDeckConfig; // default to poker
+  nextDealer?: INextDirection;
+  // customCardGroups?: { [key: string]: IBooleanConditional };
+  customValues?: { [key: string]: IResolveConditional };
   phases: {
     order: Array<'play' | 'discard' | 'draw'>;
     canSkipToLast?: boolean; // default false
   };
   rounds: {
-    order: {
-      '*'?: IRoundsConfig;
-      [key: string]: IRoundsConfig | undefined; // should be a number key
-    };
+    order: OrderEntryConfig<IRoundsConfig>;
   };
-  pointCalculation?: IMathConditional;
+  useSubRounds?: boolean;
+  defaultPlayerContext?: IPlayerContext;
+  roundPointCalculation?: IMathConditional;
   winConditions: IBooleanConditional;
   completeConditions: IBooleanConditional;
 }

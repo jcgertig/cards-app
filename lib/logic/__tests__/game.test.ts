@@ -10,12 +10,12 @@ function getRoundData(game: Game, roundIdx?: number) {
 }
 
 function getGame() {
-  return new Game({ config: deucesConfig, playerIds: [1, 2, 3] });
+  return new Game({ config: deucesConfig, playerIds: ['1', '2', '3'] });
 }
 
 function getReadyGame() {
   const game = getGame();
-  game.addPlayer(4);
+  game.addPlayer('4');
   game.start();
   return game;
 }
@@ -31,36 +31,36 @@ describe('Game class (deuces)', () => {
       game.start();
       expect(true).toEqual(false);
     } catch (error) {
-      expect(error.message).toEqual('Not able to start the game');
+      expect((error as any).message).toEqual('Not able to start the game');
     }
   });
 
   test('should be able to add a player when less the the max', () => {
     const game = getGame();
-    game.addPlayer(4);
-    expect(game.asJSON().playerIds).toEqual([1, 2, 3, 4]);
+    game.addPlayer('4');
+    expect(game.asJSON().playerIds).toEqual(['1', '2', '3', '4']);
   });
 
   test('should be not able to add a player when more the the max', () => {
     const game = getGame();
-    game.addPlayer(4);
-    expect(game.asJSON().playerIds).toEqual([1, 2, 3, 4]);
+    game.addPlayer('4');
+    expect(game.asJSON().playerIds).toEqual(['1', '2', '3', '4']);
     try {
-      game.addPlayer(5);
+      game.addPlayer('5');
       expect(true).toEqual(false);
     } catch (error) {
-      expect(error.message).toEqual('Can no longer add players');
+      expect((error as any).message).toEqual('Can no longer add players');
     }
   });
 
   test('should be able to start a game', () => {
     const game = getGame();
-    game.addPlayer(4);
+    game.addPlayer('4');
     try {
       game.start();
       expect(game.asJSON().rounds.length).toEqual(1);
     } catch (error) {
-      expect(error.message).toEqual('Not able to start the game');
+      expect((error as any).message).toEqual('Not able to start the game');
     }
   });
 
@@ -80,7 +80,9 @@ describe('Game class (deuces)', () => {
       game.play(['4D']);
       expect(true).toEqual(false);
     } catch (error) {
-      expect(error.message).toEqual('This type of hand is not allowed');
+      expect((error as any).message).toEqual(
+        'This type of hand is not allowed'
+      );
     }
   });
 
@@ -136,6 +138,6 @@ describe('Game class (deuces)', () => {
       }
       game.done();
     }
-    expect(typeof game.winner).toEqual('number');
+    expect(typeof game.winner).toEqual('string');
   });
 });

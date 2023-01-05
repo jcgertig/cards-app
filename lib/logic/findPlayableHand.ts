@@ -50,6 +50,7 @@ export function findPlayableHand(
   const elseCheck = (inc: string, handInc?: string) =>
     !checked.includes(inc) &&
     !conditions.hands.includes(handInc || (inc as any));
+
   while (checked.length < 5) {
     if (ifCheck('5', 'poker')) {
       checked.push('5');

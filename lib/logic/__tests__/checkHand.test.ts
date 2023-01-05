@@ -107,7 +107,7 @@ describe('validHand', () => {
       validHand(['AH', 'AS', 'AD', '3C', '2C'], ['poker'], deucesConfig.deck)
     ).toEqual(false);
   });
-  test('should return false for two cards and only "4" allowed hand', () => {
+  test('should return false for five cards and only "4" allowed hand', () => {
     expect(
       validHand(['AH', 'AS', 'AD', 'AC', '2C'], ['4'], deucesConfig.deck)
     ).toEqual(false);

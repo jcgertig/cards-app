@@ -17,14 +17,14 @@
   - role: not used
 ## Custom Card Groups
   - None
-## Custom Conditions
+## Custom Values
   - HeartsBroken: [all] [player] [played] [card(s)] [suit] [contains] [H]
 ## Games
   - *:
     - win conditions: [player] [points] [least of] [all] [player] [points]
     - complete conditions: [all] [player] [hand] [card(s)] [count] [contains] [0]
 ## Rounds
-  - 1:
+  - 0:
     - Win Conditions: [player] [played] [count] [matches] [4] [AND] [player] [played] [card(s)] [value] [greatest of] [all] [player] [played] [card(s)] [value] [where] [player] [played] [card(s)] [suit] [matches] [first player] [played] [card(s)] [suit]
     - Player to start: [player] [hand] [card(s)] [name] [contains] [2C]
     - Player to start can play:
@@ -46,7 +46,7 @@
     - Player to start plays:
       - hands: [single]
       - can skip: false
-      - guard: [if] [HeartsBroken] [matches] [false] _then_ [player] [played] [card(s)] [suit] [not matches] [H]
+      - guard: [if] [customValue] [HeartsBroken] [matches] [false] _then_ [player] [played] [card(s)] [suit] [not matches] [H]
     - Next player: [clockwise]
     - Following players can play:
       - hands: [single]

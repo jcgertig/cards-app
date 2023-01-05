@@ -1,5 +1,5 @@
 import { resolveCheck } from '../checkConditions';
-import { LevelValueSymbol } from '../game';
+import { DataValueSymbol } from '../game';
 
 describe('resolveCheck', () => {
   test('should throw an error for a unknown conditional', () => {
@@ -8,7 +8,7 @@ describe('resolveCheck', () => {
       expect(true).toEqual(false);
     } catch (e) {
       expect(e).toBeInstanceOf(Error);
-      expect(e.message).toEqual('unknown condition fail');
+      expect((e as any).message).toEqual('unknown condition fail');
     }
   });
 
@@ -32,7 +32,7 @@ describe('resolveCheck', () => {
 
     it('returns value for unit x', () => {
       expect(
-        resolveCheck({ unit: ['x'] }, { x: { [LevelValueSymbol]: 1 } })
+        resolveCheck({ unit: ['x'] }, { x: { [DataValueSymbol]: 1 } })
       ).toEqual(1);
     });
 
@@ -42,8 +42,8 @@ describe('resolveCheck', () => {
           { unit: ['x', 'y', 'z'] },
           {
             x: {
-              [LevelValueSymbol]: 1,
-              y: { [LevelValueSymbol]: 2, z: { [LevelValueSymbol]: 3 } }
+              [DataValueSymbol]: 1,
+              y: { [DataValueSymbol]: 2, z: { [DataValueSymbol]: 3 } }
             }
           }
         )
@@ -52,7 +52,7 @@ describe('resolveCheck', () => {
 
     it('returns undefined for unit not found', () => {
       expect(
-        resolveCheck({ unit: ['x'] }, { y: { [LevelValueSymbol]: 1 } })
+        resolveCheck({ unit: ['x'] }, { y: { [DataValueSymbol]: 1 } })
       ).toEqual(undefined);
     });
   });
@@ -68,7 +68,7 @@ describe('resolveCheck', () => {
               unit: ['value']
             }
           },
-          { value: { [LevelValueSymbol]: 5 } }
+          { value: { [DataValueSymbol]: 5 } }
         )
       ).toEqual(13);
     });
@@ -83,7 +83,7 @@ describe('resolveCheck', () => {
               unit: ['value']
             }
           },
-          { value: { [LevelValueSymbol]: 5 } }
+          { value: { [DataValueSymbol]: 5 } }
         )
       ).toEqual(-3);
     });
@@ -98,7 +98,7 @@ describe('resolveCheck', () => {
               unit: ['value']
             }
           },
-          { value: { [LevelValueSymbol]: 5 } }
+          { value: { [DataValueSymbol]: 5 } }
         )
       ).toEqual(40);
     });
@@ -113,7 +113,7 @@ describe('resolveCheck', () => {
               unit: ['value']
             }
           },
-          { value: { [LevelValueSymbol]: 5 } }
+          { value: { [DataValueSymbol]: 5 } }
         )
       ).toEqual(5 / 8);
     });
@@ -127,7 +127,7 @@ describe('resolveCheck', () => {
               unit: ['values']
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(10);
     });
@@ -141,7 +141,7 @@ describe('resolveCheck', () => {
               unit: ['values']
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(10 / 4);
     });
@@ -155,7 +155,7 @@ describe('resolveCheck', () => {
               unit: ['values']
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(1);
     });
@@ -169,7 +169,7 @@ describe('resolveCheck', () => {
               unit: ['values']
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(4);
     });
@@ -186,7 +186,7 @@ describe('resolveCheck', () => {
               }
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(2);
     });
@@ -203,7 +203,7 @@ describe('resolveCheck', () => {
               }
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4] } }
         )
       ).toEqual(3);
     });
@@ -217,7 +217,7 @@ describe('resolveCheck', () => {
               unit: ['values']
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4, 5] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4, 5] } }
         )
       ).toEqual(5);
     });
@@ -241,7 +241,7 @@ describe('resolveCheck', () => {
               }
             }
           },
-          { values: { [LevelValueSymbol]: [1, 2, 3, 4, 5] } }
+          { values: { [DataValueSymbol]: [1, 2, 3, 4, 5] } }
         )
       ).toEqual(3);
     });
@@ -271,7 +271,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 5 } }
+            { value: { [DataValueSymbol]: 5 } }
           )
         ).toEqual(true);
       });
@@ -298,7 +298,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 4 } }
+            { value: { [DataValueSymbol]: 4 } }
           )
         ).toEqual(false);
       });
@@ -325,7 +325,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 3 } }
+            { value: { [DataValueSymbol]: 3 } }
           )
         ).toEqual(false);
       });
@@ -354,7 +354,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 5 } }
+            { value: { [DataValueSymbol]: 5 } }
           )
         ).toEqual(true);
       });
@@ -381,7 +381,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 4 } }
+            { value: { [DataValueSymbol]: 4 } }
           )
         ).toEqual(true);
       });
@@ -408,7 +408,7 @@ describe('resolveCheck', () => {
                 }
               ]
             },
-            { value: { [LevelValueSymbol]: 3 } }
+            { value: { [DataValueSymbol]: 3 } }
           )
         ).toEqual(true);
       });
@@ -436,8 +436,8 @@ describe('resolveCheck', () => {
               ]
             },
             {
-              value1: { [LevelValueSymbol]: 4 },
-              value2: { [LevelValueSymbol]: 3 }
+              value1: { [DataValueSymbol]: 4 },
+              value2: { [DataValueSymbol]: 3 }
             }
           )
         ).toEqual(false);
@@ -456,14 +456,16 @@ describe('resolveCheck', () => {
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                }
               }
             },
             {
-              value1: { [LevelValueSymbol]: 1 },
-              value2: { [LevelValueSymbol]: 2 }
+              value1: { [DataValueSymbol]: 1 },
+              value2: { [DataValueSymbol]: 2 }
             }
           )
         ).toEqual(true);
@@ -480,14 +482,16 @@ describe('resolveCheck', () => {
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                }
               }
             },
             {
-              value1: { [LevelValueSymbol]: 1 },
-              value2: { [LevelValueSymbol]: 3 }
+              value1: { [DataValueSymbol]: 1 },
+              value2: { [DataValueSymbol]: 3 }
             }
           )
         ).toEqual(false);
@@ -504,14 +508,16 @@ describe('resolveCheck', () => {
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                }
               }
             },
             {
-              value1: { [LevelValueSymbol]: 5 },
-              value2: { [LevelValueSymbol]: 2 }
+              value1: { [DataValueSymbol]: 5 },
+              value2: { [DataValueSymbol]: 2 }
             }
           )
         ).toEqual(true);
@@ -523,21 +529,24 @@ describe('resolveCheck', () => {
         expect(
           resolveCheck(
             {
-              condition: 'not if',
+              condition: 'if',
               left: {
                 condition: '!=',
                 left: { unit: ['value1'] },
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                },
+                else: false
               }
             },
             {
-              value1: { [LevelValueSymbol]: 1 },
-              value2: { [LevelValueSymbol]: 2 }
+              value1: { [DataValueSymbol]: 1 },
+              value2: { [DataValueSymbol]: 2 }
             }
           )
         ).toEqual(true);
@@ -547,21 +556,24 @@ describe('resolveCheck', () => {
         expect(
           resolveCheck(
             {
-              condition: 'not if',
+              condition: 'if',
               left: {
                 condition: '!=',
                 left: { unit: ['value1'] },
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                },
+                else: false
               }
             },
             {
-              value1: { [LevelValueSymbol]: 1 },
-              value2: { [LevelValueSymbol]: 3 }
+              value1: { [DataValueSymbol]: 1 },
+              value2: { [DataValueSymbol]: 3 }
             }
           )
         ).toEqual(false);
@@ -571,21 +583,24 @@ describe('resolveCheck', () => {
         expect(
           resolveCheck(
             {
-              condition: 'not if',
+              condition: 'if',
               left: {
                 condition: '!=',
                 left: { unit: ['value1'] },
                 right: 5
               },
               right: {
-                condition: '=',
-                left: { unit: ['value2'] },
-                right: 2
+                then: {
+                  condition: '=',
+                  left: { unit: ['value2'] },
+                  right: 2
+                },
+                else: false
               }
             },
             {
-              value1: { [LevelValueSymbol]: 5 },
-              value2: { [LevelValueSymbol]: 2 }
+              value1: { [DataValueSymbol]: 5 },
+              value2: { [DataValueSymbol]: 2 }
             }
           )
         ).toEqual(false);
@@ -604,7 +619,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(true);
@@ -621,7 +636,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 1 }
+              value: { [DataValueSymbol]: 1 }
             }
           )
         ).toEqual(false);
@@ -640,7 +655,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(false);
@@ -657,7 +672,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 1 }
+              value: { [DataValueSymbol]: 1 }
             }
           )
         ).toEqual(true);
@@ -676,7 +691,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 4 }
+              value: { [DataValueSymbol]: 4 }
             }
           )
         ).toEqual(false);
@@ -693,7 +708,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(false);
@@ -710,7 +725,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 6 }
+              value: { [DataValueSymbol]: 6 }
             }
           )
         ).toEqual(true);
@@ -729,7 +744,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 4 }
+              value: { [DataValueSymbol]: 4 }
             }
           )
         ).toEqual(false);
@@ -746,7 +761,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(true);
@@ -763,7 +778,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 6 }
+              value: { [DataValueSymbol]: 6 }
             }
           )
         ).toEqual(true);
@@ -782,7 +797,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 4 }
+              value: { [DataValueSymbol]: 4 }
             }
           )
         ).toEqual(true);
@@ -799,7 +814,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(false);
@@ -816,7 +831,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 6 }
+              value: { [DataValueSymbol]: 6 }
             }
           )
         ).toEqual(false);
@@ -835,7 +850,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 4 }
+              value: { [DataValueSymbol]: 4 }
             }
           )
         ).toEqual(true);
@@ -852,7 +867,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 5 }
+              value: { [DataValueSymbol]: 5 }
             }
           )
         ).toEqual(true);
@@ -869,7 +884,7 @@ describe('resolveCheck', () => {
               right: 5
             },
             {
-              value: { [LevelValueSymbol]: 6 }
+              value: { [DataValueSymbol]: 6 }
             }
           )
         ).toEqual(false);

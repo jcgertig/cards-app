@@ -2,7 +2,6 @@ export type IBooleanConditional =
   | IAndConditional
   | IOrConditional
   | IIfConditional
-  | INotIfConditional
   | IEqConditional
   | INotEqConditional
   | IGtnConditional
@@ -16,7 +15,9 @@ export type IBooleanConditional =
   | IAnyLtnConditional
   | IAnyLtnEqConditional
   | IAnyGtnConditional
-  | IAnyGtnEqConditional;
+  | IAnyGtnEqConditional
+  | IFirstConditional
+  | ILastConditional;
 
 export type IMathConditional = IValueConditional | IPureMathConditional;
 
@@ -32,7 +33,18 @@ export type IPureMathConditional =
   | IFloorConditional
   | ICeilConditional
   | ICountConditional
-  | IFilterConditional;
+  | IAbsConditional
+  | IFilterConditional
+  | IValueIfConditional;
+
+export type IConditional = IBooleanConditional | IMathConditional;
+
+export type IResolveConditional =
+  | IConditional
+  | string
+  | number
+  | boolean
+  | Array<any>;
 
 export interface IValueConditional {
   unit: Array<string | number>;
@@ -85,13 +97,34 @@ export interface ICountConditional {
   condition: 'count';
   right: IFilterConditional | IValueConditional | Array<any>;
 }
+export interface IAbsConditional {
+  condition: 'abs';
+  right: IMathConditional | number;
+}
 export interface IFilterConditional {
   condition: 'filter';
   left: IValueConditional | Array<any>;
   right: IBooleanConditional;
 }
 
-export type IConditional = IBooleanConditional | IMathConditional;
+export interface IValueIfConditional {
+  condition: 'value if';
+  left: IBooleanConditional;
+  right: {
+    then: IMathConditional | string | number | boolean;
+    else: IMathConditional | string | number | boolean;
+  };
+}
+
+export interface IFirstConditional {
+  condition: 'first';
+  right: IFilterConditional | IValueConditional | Array<any>;
+}
+
+export interface ILastConditional {
+  condition: 'last';
+  right: IFilterConditional | IValueConditional | Array<any>;
+}
 
 export interface IAndConditional {
   condition: 'and';
@@ -104,12 +137,10 @@ export interface IOrConditional {
 export interface IIfConditional {
   condition: 'if';
   left: IBooleanConditional;
-  right: IBooleanConditional;
-}
-export interface INotIfConditional {
-  condition: 'not if';
-  left: IBooleanConditional;
-  right: IBooleanConditional;
+  right: {
+    then: IBooleanConditional | boolean;
+    else?: IBooleanConditional | boolean;
+  };
 }
 export interface IEqConditional {
   condition: '=';

@@ -1,21 +1,26 @@
-import { clone, last } from 'lodash';
+import { clone, get, last } from 'lodash';
 
 import {
   IGameConfig,
   INextDirection,
+  IPlayerContext,
+  IPlayerContextValue,
   IPlayTarget,
-  IRoundPlayConditions
+  IRoundPlayCanConditions,
+  IRoundPlayConditions,
+  OrderEntryConfig
 } from '../game-config';
 import { resolveCheck } from './checkConditions';
 import { validHand } from './checkHand';
 import { Card, Deck } from './deck';
 import { pokerValue } from './pokerValue';
+import { IResolveConditional } from './types';
 
-export const LevelValueSymbol = Symbol('_value');
+export const DataValueSymbol = Symbol('_value');
 
 interface INewGameOptions {
   config: IGameConfig;
-  playerIds: Array<number>;
+  playerIds: Array<string>;
 }
 
 interface IGameOptions {
@@ -24,7 +29,7 @@ interface IGameOptions {
 
 export interface IGameState {
   config: IGameConfig;
-  playerIds: Array<number>;
+  playerIds: Array<string>;
   points: Array<number>;
   rounds: Array<IGameRound>;
   currentRoundIdx: number;
@@ -40,11 +45,14 @@ interface IGamePlayer {
   points: number;
   callCount: number;
   called: Array<Array<string>>;
+  context: Record<string, string | number | boolean>;
 }
 
 interface IGameRound {
   deck: Deck;
+  dealerIdx: number;
   turnIdx: number;
+  subRoundIdx: number;
   players: Array<IGamePlayer>;
   table: Array<string>;
   discards: Array<string>;
@@ -53,6 +61,7 @@ interface IGameRound {
   currentPlayerIdx: number;
   winner?: number;
   called: Array<number>;
+  subRounds: Array<IGameRound>;
 }
 
 interface IDataProxyArgs {
@@ -62,6 +71,13 @@ interface IDataProxyArgs {
   winner: boolean;
   player: boolean;
   firstPlayer: boolean;
+  deck: boolean;
+  table: boolean;
+  discards: boolean;
+  count: boolean;
+  round: boolean;
+  customValue: boolean;
+  wins: boolean;
 }
 
 const recent = (data: Array<any>) => {
@@ -71,9 +87,71 @@ const recent = (data: Array<any>) => {
   return data;
 };
 
+const getCardValue = (data: any, entry: string) => {
+  if (entry === 'value') {
+    if (Array.isArray(data)) {
+      return pokerValue(data);
+    }
+    return data;
+  } else if (entry === 'count') {
+    return data.length;
+  } else if (entry === 'points') {
+    return data.map((card: Card) => card.pointValue);
+  } else if (entry === 'suit') {
+    return data.map((card: Card) => card.suit);
+  } else if (entry === 'unit') {
+    return data.map((card: Card) => card.unit);
+  } else if (entry === 'name') {
+    return data.map((card: Card) => card.name);
+  }
+  return null;
+};
+
+const getValueFromCards = (path: Array<string>, data?: Array<Card>) => {
+  if (typeof data === 'undefined') {
+    return undefined;
+  }
+  for (const entry of path) {
+    const res = getCardValue(data, entry);
+    if (res !== null) return res;
+  }
+  return data;
+};
+
+const getOrderEntry = <T extends any>(
+  order: OrderEntryConfig<T>,
+  index: number,
+  loop = false,
+  allowOdds = false
+) => {
+  let key = index.toFixed(0);
+  if (!!order['*'] && loop) {
+    key = (index % Object.keys(order).length).toFixed(0);
+  } else if (allowOdds) {
+    key = index % 2 === 0 ? 'even' : 'odd';
+  }
+  return order[key] || order['*'];
+};
+
+const defaultProxyArgs: IDataProxyArgs = {
+  path: [] as Array<string>,
+  previous: false,
+  all: false,
+  winner: false,
+  player: false,
+  firstPlayer: false,
+  deck: false,
+  discards: false,
+  table: false,
+  round: false,
+  count: false,
+  customValue: false,
+  wins: false
+};
+
 export default class Game {
   private config: IGameConfig;
-  private playerIds: Array<number> = [];
+  private playerIdsInternal: Set<string> = new Set<string>();
   private points: Array<number> = [];
 
   private rounds: Array<IGameRound> = [];
@@ -101,11 +179,35 @@ export default class Game {
     return this.playerIds[this.currentRound.currentPlayerIdx];
   }
 
-  private get currentRound() {
+  get currentPlayerIdx() {
+    return this.currentRound.currentPlayerIdx;
+  }
+
+  get currentDealerIdx() {
+    return this.currentRound.dealerIdx;
+  }
+
+  private get playerIds() {
+    return [...this.playerIdsInternal.values()];
+  }
+
+  private get currentRealRound() {
     return this.rounds[this.currentRoundIdx];
   }
 
-  private get previousRound() {
+  private get previousRealRound(): IGameRound | undefined {
+    return this.rounds[this.currentRoundIdx - 1];
+  }
+
+  private get currentRound() {
+    const round = this.rounds[this.currentRoundIdx];
+    if (this.useSubRounds) return round.subRounds[round.subRoundIdx];
+    return this.rounds[this.currentRoundIdx];
+  }
+
+  private get previousRound(): IGameRound | undefined {
+    const round = this.rounds[this.currentRoundIdx];
+    if (this.useSubRounds) return round.subRounds[round.subRoundIdx - 1];
     return this.rounds[this.currentRoundIdx - 1];
   }
 
@@ -113,7 +215,7 @@ export default class Game {
     return this.currentRound.players[this.currentRound.currentPlayerIdx];
   }
 
-  get currentPlayConditions() {
+  private get roundPlayConditions() {
     const roundConfig = this.getRoundConfig();
     return JSON.parse(
       JSON.stringify(
@@ -124,12 +226,53 @@ export default class Game {
     ) as IRoundPlayConditions;
   }
 
+  private get subRoundPlayConditions() {
+    const roundConfig = this.getSubRoundConfig();
+    return JSON.parse(
+      JSON.stringify(
+        this.currentRound.turnIdx === 0
+          ? roundConfig.firstPlayerPlayConditions
+          : roundConfig.playerPlayConditions
+      )
+    ) as IRoundPlayConditions;
+  }
+
+  get currentPlayConditions() {
+    if (this.useSubRounds) return this.subRoundPlayConditions;
+    return this.roundPlayConditions;
+  }
+
   get currentPlayerData() {
     return JSON.parse(
       JSON.stringify(
         this.currentRound.players[this.currentRound.currentPlayerIdx]
       )
     ) as IGamePlayer;
+  }
+
+  get useSubRounds() {
+    return !!this.config.useSubRounds;
+  }
+
+  get roundComplete() {
+    return this.resolveCheckCurrentUser(
+      this.getRoundConfig().completeConditions
+    );
+  }
+
+  get subRoundComplete() {
+    if (!this.useSubRounds) return false;
+    return this.resolveCheckCurrentUser(
+      this.getSubRoundConfig().completeConditions
+    );
+  }
+
+  get gameComplete() {
+    if (this.complete) return true;
+    if (this.config.completeConditions) {
+      return this.resolveCheckCurrentUser(this.config.completeConditions);
+    }
+    return false;
   }
 
   private previousPlayerIdx(back: number = 1): number | null {
@@ -169,11 +312,11 @@ export default class Game {
     if ((options as INewGameOptions).config) {
       const { config, playerIds } = options as INewGameOptions;
       this.config = config;
-      this.playerIds = playerIds;
+      this.playerIdsInternal = new Set(playerIds);
     } else {
       const config = (options as IGameOptions).options;
       this.config = config.config;
-      this.playerIds = config.playerIds;
+      this.playerIdsInternal = new Set(config.playerIds);
       this.points = config.points;
       this.rounds = config.rounds;
       this.currentRoundIdx = config.currentRoundIdx;
@@ -182,14 +325,9 @@ export default class Game {
     }
   }
 
-  private getDataProxy = (activePlayerId: number) => {
+  private getDataProxy = (activePlayerIdx: number) => {
     const args = (overrides: any = {}) => ({
-      path: [] as Array<string>,
-      previous: false,
-      all: false,
-      winner: false,
-      player: false,
-      firstPlayer: false,
+      ...defaultProxyArgs,
       ...overrides
     });
     return () =>
@@ -197,40 +335,31 @@ export default class Game {
         {},
         {
           get: (_, attribute: string) => {
-            if (attribute === 'player') {
+            if (Object.keys(defaultProxyArgs).includes(attribute))
               return this.createDataProxy(
-                args({ player: true }),
-                activePlayerId
+                args({
+                  [attribute]: true
+                }),
+                activePlayerIdx
               );
-            }
-            if (attribute === 'winner') {
-              return this.createDataProxy(
-                args({ winner: true }),
-                activePlayerId
-              );
-            }
-            if (attribute === 'firstPlayer') {
-              return this.createDataProxy(
-                args({ firstPlayer: true }),
-                activePlayerId
-              );
-            }
-            if (attribute === 'all') {
-              return this.createDataProxy(args({ all: true }), activePlayerId);
-            }
-            if (attribute === 'previous') {
-              return this.createDataProxy(
-                args({ previous: true }),
-                activePlayerId
-              );
-            }
           }
         }
       );
   };
 
   private parseDataValue = (
-    { path, previous, player, all, winner, firstPlayer }: IDataProxyArgs,
+    {
+      path,
+      previous,
+      player,
+      all,
+      winner,
+      firstPlayer,
+      deck,
+      discards,
+      table,
+      round
+    }: IDataProxyArgs,
     activePlayerIdx: number
   ) => {
     const getValueFromPlayer = (player?: IGamePlayer) => {
@@ -245,72 +374,85 @@ export default class Game {
             if (name instanceof Card) return name;
             return new Card(name, this.config.deck);
           });
-        } else if (entry === 'value') {
-          if (Array.isArray(data)) {
-            return pokerValue(data);
-          }
-          return data;
-        } else if (entry === 'count') {
-          return data.length;
-        } else if (entry === 'points') {
-          return data.map((card: Card) => card.pointValue);
-        } else if (entry === 'suit') {
-          return data.map((card: Card) => card.suit);
-        } else if (entry === 'unit') {
-          return data.map((card: Card) => card.unit);
-        } else if (entry === 'name') {
-          return data.map((card: Card) => card.name);
         }
+        const res = getCardValue(data, entry);
+        if (res !== null) return res;
       }
       return data;
     };
-    const getValue = (round: IGameRound, all = false) => {
+
+    const getValueFrom = (data: any) => {
+      if (typeof data === 'undefined') {
+        return undefined;
+      }
+      return get(data, path);
+    };
+
+    const getValue = (gameRound: IGameRound) => {
+      if (round) {
+        return getValueFrom(gameRound);
+      }
       if (winner) {
-        return getValueFromPlayer(round.players[round.winner || '']); // '' is to ensure a undefined result
+        return getValueFromPlayer(gameRound.players[gameRound.winner || '']); // '' is to ensure a undefined result
       }
       if (firstPlayer) {
-        return getValueFromPlayer(round.players[round.firstPlayerIdx]);
+        return getValueFromPlayer(gameRound.players[gameRound.firstPlayerIdx]);
+      }
+      if (deck) {
+        return getValueFromCards(path, gameRound.deck.cardsLeft);
+      }
+      if (discards) {
+        return getValueFromCards(
+          path,
+          gameRound.discards.map((v) => new Card(v, this.config.deck))
+        );
+      }
+      if (table) {
+        return getValueFromCards(
+          path,
+          gameRound.table.map((v) => new Card(v, this.config.deck))
+        );
       }
       if (all) {
-        return round.players.map(getValueFromPlayer);
+        return gameRound.players.map(getValueFromPlayer);
       }
-      return getValueFromPlayer(clone(round.players[activePlayerIdx]));
+      return getValueFromPlayer(clone(gameRound.players[activePlayerIdx]));
     };
+
     if (previous && !player) {
       if (typeof this.previousRound === 'undefined') {
         return undefined;
       }
       return getValue(this.previousRound);
     }
-    return getValue(this.currentRound, all);
+    return getValue(this.currentRound);
   };
 
   private createDataProxy = (
     baseArgs: IDataProxyArgs,
-    activePlayerId: number
+    activePlayerIdx: number
   ) => {
     const getPlayerIdx = (args: IDataProxyArgs) => {
       if (!args.player) return this.currentRound.currentPlayerIdx;
-      const activeIdx = this.playerIds.indexOf(activePlayerId!);
       if (args.previous && this.currentRound.previousPlayerIdx.length > 0) {
         if (args.path.includes('played')) {
           let back = 1;
           let previousIdx = this.previousPlayerIdx(back);
           if (previousIdx === null) {
-            return activeIdx;
+            return activePlayerIdx;
           }
           while (this.currentRound.players[previousIdx].skipped) {
             back += 1;
             previousIdx = this.previousPlayerIdx(back);
             if (previousIdx === null) {
-              return activeIdx;
+              return activePlayerIdx;
             }
           }
           return previousIdx;
         }
         return this.previousPlayerIdx()!;
       }
-      return activeIdx;
+      return activePlayerIdx;
     };
 
     const args = clone(baseArgs);
@@ -327,8 +469,14 @@ export default class Game {
             // can only be a winner or a firstPlayer
             args.winner = false;
             args.firstPlayer = true;
-          } else if (attribute === LevelValueSymbol) {
+          } else if (attribute === DataValueSymbol) {
             // get the data value
+            if (args.customValue) {
+              const customValue = this.config.customValues?.[args.path[0]];
+              if (typeof customValue === 'undefined')
+                throw new Error(`Missing custom value ${args.path[0]}`);
+              return this.resolveCheck(customValue, activePlayerIdx);
+            }
             if (
               args.player &&
               args.previous &&
@@ -336,9 +484,37 @@ export default class Game {
             ) {
               return undefined;
             }
+            if (args.player && args.count) return this.playerIds.length;
+            if (args.round && args.count) return this.rounds.length;
+            if (args.wins && args.count) {
+              const idx = getPlayerIdx(args);
+              if (args[0] === 'game') {
+                return this.rounds.filter((i) => i.winner === idx).length;
+              } else if (args[0] === 'round') {
+                const round = args.previous
+                  ? this.previousRealRound
+                  : this.currentRealRound;
+                return round?.subRounds.filter((i) => i.winner === idx).length;
+              }
+              return 0;
+            }
             return this.parseDataValue(args, getPlayerIdx(args));
           } else if (attribute === 'player') {
             args.player = true;
+          } else if (attribute === 'deck') {
+            args.deck = true;
+          } else if (attribute === 'discards') {
+            args.discards = true;
+          } else if (attribute === 'table') {
+            args.table = true;
+          } else if (attribute === 'round') {
+            args.round = true;
+          } else if (attribute === 'count') {
+            args.count = true;
+          } else if (attribute === 'wins') {
+            args.wins = true;
+          } else if (attribute === 'customValue') {
+            args.customValue = true;
           } else if (typeof attribute === 'string') {
             args.path.push(attribute);
           }
@@ -349,16 +525,48 @@ export default class Game {
     return prox;
   };
 
+  private resolveCheck = (
+    conditional: IResolveConditional,
+    idx: number,
+    other?: any
+  ) => resolveCheck(conditional, this.getDataProxy(idx), other);
+
+  private resolveCheckCurrentUser = (
+    conditional: IResolveConditional,
+    other?: any
+  ) =>
+    this.resolveCheck(conditional, this.currentRound.currentPlayerIdx, other);
+
+  private evaluateUserIdx = (conditional: IResolveConditional, other?: any) => {
+    for (let idx = 0; idx < this.playerIds.length; idx += 1) {
+      if (this.resolveCheck(conditional, idx, other)) return idx;
+    }
+    return;
+  };
+
   private getRoundConfig = (entry?: number) => {
     const len = entry || this.rounds.length;
-    const roundConfig =
-      this.config.rounds.order[`${len}`] || this.config.rounds.order['*'];
-    if (roundConfig) {
-      return roundConfig;
-    }
-    throw new Error(
-      `Missing round config for turn ${len}. Add a default order of * or the specific turn index.`
-    );
+    const roundConfig = getOrderEntry(this.config.rounds.order, len);
+    if (!roundConfig)
+      throw new Error(
+        `Missing round config for turn "${len}". Add a default order of * or the specific turn index.`
+      );
+    return roundConfig;
+  };
+
+  private getSubRoundConfig = (entry?: number, roundEntry?: number) => {
+    if (!this.useSubRounds)
+      throw new Error("Can't use sub-rounds without useSubRounds true");
+    const roundConfig = this.getRoundConfig(roundEntry);
+    const len = entry || this.currentRound.subRounds.length;
+    if (!roundConfig.subRounds)
+      throw new Error('Missing sub-round config for round');
+    const subRoundConfig = getOrderEntry(roundConfig.subRounds.order, len);
+    if (!subRoundConfig)
+      throw new Error(
+        `Missing sub-round config for turn ${len}. Add a default order of * or the specific turn index.`
+      );
+    return roundConfig;
   };
 
   private getNextPlayer = (playerIdx: number, direction: INextDirection) => {
@@ -380,49 +588,89 @@ export default class Game {
     return playerIdx;
   };
 
-  private removeCardsFromHand = (playerIdx: number, cards: Array<string>) => {
+  private removeCardsFromHand = (
+    cards: Array<string>,
+    playerIdxOverride?: number
+  ) => {
+    const playerIdx = playerIdxOverride || this.currentPlayerIdx;
     this.currentRound.players[playerIdx].hand = this.currentRound.players[
       playerIdx
     ].hand.filter((i) => !cards.includes(i));
   };
 
-  private addCardsToHand = (playerIdx: number, cards: Array<string>) => {
+  private addCardsToHand = (
+    cards: Array<string>,
+    playerIdxOverride?: number
+  ) => {
+    const playerIdx = playerIdxOverride || this.currentPlayerIdx;
     this.currentRound.players[playerIdx].hand = [
       ...this.currentRound.players[playerIdx].hand,
       ...cards
     ];
   };
 
+  private setContextFlags = (
+    context: IPlayerContext,
+    playerIdxOverride?: number
+  ) => {
+    const playerIdx = playerIdxOverride || this.currentPlayerIdx;
+    this.currentRound.players[playerIdx].context = context;
+  };
+
+  private setContextFlag = (
+    flag: string,
+    value: IPlayerContextValue,
+    playerIdxOverride?: number
+  ) => {
+    const playerIdx = playerIdxOverride || this.currentPlayerIdx;
+    this.currentRound.players[playerIdx].context = {
+      ...this.currentRound.players[playerIdx].context,
+      [flag]: value
+    };
+  };
+
   private newRound = () => {
     this.currentRoundIdx += 1;
     const roundConfig = this.getRoundConfig(this.currentRoundIdx + 1);
+    const newDealerIdx =
+      this.currentRoundIdx !== 0 && !!this.config.nextDealer
+        ? this.getNextPlayer(this.currentPlayerIdx, this.config.nextDealer)
+        : 0;
+    const newContext =
+      roundConfig.defaultPlayerContext ||
+      this.config.defaultPlayerContext ||
+      {};
+
     if (roundConfig.newDeck || this.currentRoundIdx === 0) {
       const deck = new Deck(this.config.deck);
-      deck.createAndShuffle(
-        resolveCheck(
-          this.config.deck.count,
-          this.getDataProxy(this.playerIds[0])
-        )
-      );
+      deck.createAndShuffle(this.resolveCheck(this.config.deck?.count || 1, 0));
 
       this.rounds.push({
         deck,
         turnIdx: 0,
+        dealerIdx: newDealerIdx,
         table: [],
         discards: [],
-        players: new Array(this.playerIds.length).fill('').map((_) => ({
-          hand: [],
-          played: [],
-          collected: [],
-          skipped: false,
-          points: 0,
-          callCount: 0,
-          called: []
-        })),
+        players: new Array(this.playerIdsInternal.size).fill('').map((_) =>
+          roundConfig.subRounds
+            ? ({ points: 0 } as any)
+            : {
+                hand: [],
+                played: [],
+                collected: [],
+                skipped: false,
+                points: 0,
+                callCount: 0,
+                called: [],
+                context: newContext
+              }
+        ),
         firstPlayerIdx: 0,
         previousPlayerIdx: [],
         currentPlayerIdx: 0,
-        called: []
+        called: [],
+        subRoundIdx: -1,
+        subRounds: []
       });
 
       const { players, table } = this.deal();
@@ -432,16 +680,22 @@ export default class Game {
       }
     } else {
       this.rounds.push({
-        ...clone(this.previousRound),
-        players: this.previousRound.players.map((prePlayer) => ({
-          hand: clone(prePlayer.hand),
-          played: [],
-          collected: [],
-          skipped: false,
-          points: 0,
-          callCount: 0,
-          called: []
-        })),
+        ...clone(this.previousRealRound!),
+        dealerIdx: newDealerIdx,
+        players: this.previousRealRound!.players.map((prePlayer) =>
+          roundConfig.subRounds
+            ? ({ points: 0 } as any)
+            : {
+                hand: clone(prePlayer.hand),
+                played: [],
+                collected: [],
+                skipped: false,
+                points: 0,
+                callCount: 0,
+                called: [],
+                context: newContext
+              }
+        ),
         turnIdx: 0,
         table: [],
         discards: [],
@@ -449,72 +703,121 @@ export default class Game {
         previousPlayerIdx: [],
         currentPlayerIdx: 0,
         called: [],
-        winner: undefined
+        winner: undefined,
+        subRounds: []
       });
     }
 
-    for (let idx = 0; idx < this.currentRound.players.length; idx += 1) {
-      if (
-        resolveCheck(
-          roundConfig.firstPlayerConditions,
-          this.getDataProxy(this.playerIds[idx])
-        )
-      ) {
-        this.currentRound.firstPlayerIdx = idx;
-        this.currentRound.currentPlayerIdx = idx;
+    const foundIdx = roundConfig.firstPlayerConditions
+      ? this.evaluateUserIdx(roundConfig.firstPlayerConditions)
+      : this.getNextPlayer(
+          newDealerIdx,
+          roundConfig.nextPlayer.direction || 'clockwise'
+        );
+    if (typeof foundIdx === 'number') {
+      this.currentRound.firstPlayerIdx = foundIdx;
+      this.currentRound.currentPlayerIdx = foundIdx;
+    }
+  };
+
+  private newSubRound = () => {
+    if (this.useSubRounds) {
+      this.currentRound.subRoundIdx += 1;
+      const roundConfig = this.getSubRoundConfig(
+        this.currentRound.subRoundIdx + 1
+      );
+
+      const newContext =
+        roundConfig.defaultPlayerContext ||
+        this.config.defaultPlayerContext ||
+        {};
+
+      if (this.currentRound.subRoundIdx === 0) {
+        this.currentRound.subRounds.push({
+          deck: this.currentRound.deck,
+          turnIdx: 0,
+          dealerIdx: 0,
+          table: [],
+          discards: [],
+          players: new Array(this.playerIdsInternal.size).fill('').map((_) => ({
+            hand: [],
+            played: [],
+            collected: [],
+            skipped: false,
+            points: 0,
+            callCount: 0,
+            called: [],
+            context: newContext
+          })),
+          firstPlayerIdx: 0,
+          previousPlayerIdx: [],
+          currentPlayerIdx: 0,
+          called: [],
+          subRoundIdx: -1,
+          subRounds: []
+        });
+
+        const { players, table } = this.deal();
+        this.currentRound.table = table;
+        for (let i = 0; i < players.length; i += 1) {
+          this.currentRound.players[i].hand = players[i];
+        }
+      } else {
+        this.rounds.push({
+          ...clone(this.previousRound!),
+          deck: this.currentRound.deck,
+          players: this.previousRound!.players.map((prePlayer) => ({
+            hand: clone(prePlayer.hand),
+            played: [],
+            collected: [],
+            skipped: false,
+            points: 0,
+            callCount: 0,
+            called: [],
+            context: newContext
+          })),
+          turnIdx: 0,
+          table: [],
+          discards: [],
+          firstPlayerIdx: 0,
+          previousPlayerIdx: [],
+          currentPlayerIdx: 0,
+          called: [],
+          winner: undefined
+        });
+      }
+
+      const foundIdx = roundConfig.firstPlayerConditions
+        ? this.evaluateUserIdx(roundConfig.firstPlayerConditions)
+        : this.getNextPlayer(
+            this.currentDealerIdx,
+            roundConfig.nextPlayer.direction || 'clockwise'
+          );
+      if (typeof foundIdx === 'number') {
+        this.currentRound.firstPlayerIdx = foundIdx;
+        this.currentRound.currentPlayerIdx = foundIdx;
       }
     }
   };
 
-  get roundComplete() {
-    const roundConfig = this.getRoundConfig();
-    return resolveCheck(
-      roundConfig.completeConditions,
-      this.getDataProxy(this.playerIds[this.currentRound.currentPlayerIdx])
-    );
-  }
+  private evaluateWinner = () =>
+    this.evaluateUserIdx(this.config.winConditions);
 
-  get gameComplete() {
-    if (this.complete) return true;
-    if (this.config.completeConditions) {
-      return resolveCheck(
-        this.config.completeConditions,
-        this.getDataProxy(this.playerIds[this.currentRound.currentPlayerIdx])
-      );
-    }
-    return false;
-  }
+  private evaluateRoundWinner = () =>
+    this.evaluateUserIdx(this.getRoundConfig().winConditions);
 
-  private evaluateWinner = () => {
-    const winnerId = this.playerIds.find((id) => {
-      return resolveCheck(this.config.winConditions!, this.getDataProxy(id));
-    });
-    if (winnerId) {
-      return this.playerIds.indexOf(winnerId);
-    }
-    return;
-  };
+  private evaluateSubRoundWinner = () =>
+    this.evaluateUserIdx(this.getSubRoundConfig().winConditions);
 
-  private evaluateRoundWinner = () => {
-    const winnerId = this.playerIds.find((id) => {
-      return resolveCheck(
-        this.getRoundConfig().winConditions,
-        this.getDataProxy(id)
-      );
-    });
-    if (winnerId) {
-      return this.playerIds.indexOf(winnerId);
-    }
-    return;
-  };
-
-  private calculateTurnPoints = () => {
-    if (this.config.pointCalculation) {
-      const newPoints = resolveCheck(
-        this.config.pointCalculation!,
-        this.getDataProxy(this.playerIds[this.currentRound.currentPlayerIdx])
-      );
-      this.currentPlayer.points = newPoints;
+  private calculateRoundPoints = () => {
+    if (this.config.roundPointCalculation) {
+      for (let i = 0; i < this.currentRound.players.length; i++) {
+        const res = this.resolveCheck(this.config.roundPointCalculation!, i);
+        this.currentRound.players[i].points = res;
+        if (this.useSubRounds) {
+          this.rounds[this.currentRoundIdx].players[i].points = res;
+        }
+      }
     }
   };
 
@@ -524,7 +827,7 @@ export default class Game {
         points[idx] += player.points;
         return points;
       }, res);
-    }, new Array(this.playerIds.length).fill(0));
+    }, new Array(this.playerIdsInternal.size).fill(0));
   };
 
   get roundWon() {
@@ -537,24 +840,22 @@ export default class Game {
   get canAddPlayer() {
     return (
       this.rounds.length === 0 &&
-      (this.playerIds.length < this.config.playerCount.min ||
-        this.playerIds.length < this.config.playerCount.max)
+      (this.playerIdsInternal.size < this.config.playerCount.min ||
+        this.playerIdsInternal.size < this.config.playerCount.max)
     );
   }
 
-  addPlayer = (playerId: number) => {
-    if (!this.canAddPlayer) {
-      throw new Error('Can no longer add players');
-    }
-    this.playerIds.push(playerId);
+  addPlayer = (playerId: string) => {
+    if (!this.canAddPlayer) throw new Error('Can no longer add players');
+    this.playerIdsInternal.add(playerId);
   };
 
   get canStart() {
     return (
       !this.complete &&
       (this.roundWon ||
-        (this.playerIds.length >= this.config.playerCount.min &&
-          this.playerIds.length <= this.config.playerCount.max))
+        (this.playerIdsInternal.size >= this.config.playerCount.min &&
+          this.playerIdsInternal.size <= this.config.playerCount.max))
     );
   }
 
@@ -563,80 +864,95 @@ export default class Game {
       throw new Error('Not able to start the game');
     }
     if (this.rounds.length === 0) {
-      this.points = new Array(this.playerIds.length).fill(0);
+      this.points = new Array(this.playerIdsInternal.size).fill(0);
     }
     this.newRound();
+    this.newSubRound();
     if (this.getRoundConfig().passCards) {
       return 'passCards';
     }
     return 'start';
   };
 
-  get canPass() {
+  private canDo(
+    playConditionKey: keyof IRoundPlayCanConditions,
+    defaultMissing = false
+  ) {
     if (this.roundWon) return false;
+    const condition = this.currentPlayConditions[playConditionKey];
+    if (typeof condition === 'boolean') return condition;
+    if (typeof condition === 'undefined') return defaultMissing;
+    return this.resolveCheckCurrentUser(condition);
+  }
+
+  get passDirection() {
     const roundConfig = this.getRoundConfig();
     if (roundConfig.passCards) {
-      const dirIdx =
-        this.currentRound.turnIdx % roundConfig.passCards.direction.length;
-      const direction = roundConfig.passCards.direction[dirIdx];
-      return direction !== 'none';
+      const loop = roundConfig.passCards.loopOrder;
+      const dir = getOrderEntry(
+        roundConfig.passCards.order,
+        this.currentRound.turnIdx,
+        typeof loop === 'boolean' ? loop : true,
+        false
+      );
+      return dir || 'none';
     }
-    return false;
+    return 'none';
+  }
+
+  get canPass() {
+    const can = this.canDo('canPass');
+    if (!can) return false;
+    return this.passDirection !== 'none';
   }
 
   pass = (playerIdx: number, cards: Array<string>) => {
-    if (this.canPass) {
-      const roundConfig = this.getRoundConfig();
-      const dirIdx =
-        this.currentRound.turnIdx % roundConfig.passCards!.direction.length;
-      const direction = roundConfig.passCards!.direction[dirIdx];
-      const nextPlayerIdx = this.getNextPlayer(playerIdx, direction);
-      this.removeCardsFromHand(playerIdx, cards);
-      this.addCardsToHand(nextPlayerIdx, cards);
-    } else {
-      throw new Error('Not able to pass cards');
-    }
+    const passDir = this.passDirection;
+    if (passDir === 'none') throw new Error('Not able to pass cards');
+    const nextPlayerIdx = this.getNextPlayer(playerIdx, passDir);
+    this.removeCardsFromHand(cards, playerIdx);
+    this.addCardsToHand(cards, nextPlayerIdx);
   };
 
   deal = () => {
     const roundConfig = this.getRoundConfig();
-    if (roundConfig.deal === 'all') {
+    if (!roundConfig || !roundConfig.deal || roundConfig.deal === 'all') {
       return this.currentRound.deck.deal(
         { perPerson: 'even', toTable: 0 },
-        this.playerIds.length
-      );
-    } else {
-      const len = this.currentRound.turnIdx;
-      const dealConfig =
-        roundConfig.deal.order[`${len + 1}`] || roundConfig.deal.order['*'];
-      if (dealConfig) {
-        return this.currentRound.deck.deal(dealConfig, this.playerIds.length);
-      }
-      throw new Error(
-        `Missing deal config for turn ${len +
-          1}. Add a default order of * or the specific turn index.`
+        this.playerIdsInternal.size
       );
     }
+
+    const len = this.currentRound.turnIdx;
+    const dealConfig = getOrderEntry(roundConfig.deal.order, len);
+    if (!dealConfig)
+      throw new Error(
+        `Missing deal config for turn "${len}". Add a default order of * or the specific turn index.`
+      );
+
+    const config = {};
+    for (const key of Object.keys(dealConfig)) {
+      config[key] =
+        typeof dealConfig[key] === 'number'
+          ? dealConfig[key]
+          : this.resolveCheckCurrentUser(dealConfig[key]);
+    }
+
+    return this.currentRound.deck.deal(config, this.playerIdsInternal.size);
   };
 
   get canDraw() {
-    if (this.roundWon) return false;
-    const roundConfig = this.getRoundConfig();
-    return !!roundConfig.draw;
+    return this.canDo('canDraw');
   }
 
   get drawTargets() {
-    if (!this.canDraw) {
-      throw new Error('Drawing cards is not supported');
-    }
+    if (!this.canDraw) throw new Error('Drawing cards is not supported');
     const roundConfig = this.getRoundConfig();
     return roundConfig.draw!.target || ['deck'];
   }
 
   draw = (fromDiscard: boolean) => {
-    if (!this.canDraw) {
-      throw new Error('Drawing cards is not supported');
-    }
+    if (!this.canDraw) throw new Error('Drawing cards is not supported');
     const roundConfig = this.getRoundConfig();
     const drawCount = roundConfig.draw!.count;
     let cards: Array<string> = [];
@@ -664,10 +980,7 @@ export default class Game {
         // get the first called player that can call
         const calledPlayerIdx = this.currentRound.called.find((idx) => {
           if (!roundConfig.call?.guards) return true;
-          return resolveCheck(
-            roundConfig.call?.guards,
-            this.getDataProxy(this.playerIds[idx])
-          );
+          return this.resolveCheck(roundConfig.call?.guards, idx);
         });
         const callCount = roundConfig.call!.count;
 
@@ -688,33 +1001,33 @@ export default class Game {
             ).players[0];
             calledCards = [...calledCards, ...extraCards];
           }
-          this.addCardsToHand(calledPlayerIdx, calledCards);
+          this.addCardsToHand(calledCards, calledPlayerIdx);
         }
       }
     }
     this.currentRound.called = [];
-    this.addCardsToHand(this.currentRound.currentPlayerIdx, cards);
+    this.addCardsToHand(cards);
   };
 
   get canSkip() {
-    if (this.roundWon) return false;
-    const { canSkip } = this.currentPlayConditions;
-    return canSkip;
+    return this.canDo('canSkip');
   }
 
   skip = () => {
-    if (!this.canSkip) {
-      throw new Error('Skipping is not allowed');
-    }
+    if (!this.canSkip) throw new Error('Skipping is not allowed');
     this.currentPlayer.skipped = true;
   };
 
-  canPlay = (
+  get canPlay() {
+    return this.canDo('canPlace', true);
+  }
+
+  checkAllowedPlay = (
     cards: Array<string>,
     target: IPlayTarget,
     otherPlayerIdx?: number
   ) => {
-    if (this.roundWon) return false;
+    if (!this.canPlay) return false;
     const { hands, guards } = this.currentPlayConditions;
     if (validHand(cards, hands, this.config.deck)) {
       const oldHand = [...this.currentPlayer.hand];
@@ -727,7 +1040,7 @@ export default class Game {
         this.currentRound.players[otherPlayerIdx].collected.push(cards);
       }
       this.currentPlayer.played.push(cards);
-      this.removeCardsFromHand(this.currentRound.currentPlayerIdx, cards);
+      this.removeCardsFromHand(cards);
 
       const resetCards = () => {
         if (target === 'table') {
@@ -743,15 +1056,11 @@ export default class Game {
 
       if (
         !guards ||
-        resolveCheck(
+        this.resolveCheck(
           guards,
-          this.getDataProxy(
-            this.playerIds[
-              target === 'other-collection'
-                ? otherPlayerIdx!
-                : this.currentRound.currentPlayerIdx
-            ]
-          )
+          target === 'other-collection'
+            ? otherPlayerIdx!
+            : this.currentRound.currentPlayerIdx
         )
       ) {
         resetCards();
@@ -767,7 +1076,7 @@ export default class Game {
     target: IPlayTarget = 'table',
     otherPlayerIdx?: number
   ) => {
-    if (!this.canPlay(cards, target, otherPlayerIdx)) {
+    if (!this.checkAllowedPlay(cards, target, otherPlayerIdx)) {
       throw new Error('This type of hand is not allowed');
     }
     if (target === 'table') {
@@ -778,32 +1087,31 @@ export default class Game {
       this.currentRound.players[otherPlayerIdx].collected.push(cards);
     }
     this.currentPlayer.played.push(cards);
-    this.removeCardsFromHand(this.currentRound.currentPlayerIdx, cards);
+    this.removeCardsFromHand(cards);
   };
 
   get canCall() {
-    if (this.roundWon) return false;
-    const roundConfig = this.getRoundConfig();
-    return !roundConfig.discard || !roundConfig.call ? false : true;
+    return this.canDo('canCall');
   }
 
   call = (playerIdx: number) => {
-    if (!this.canCall) {
-      throw new Error('Calling is not allowed');
+    if (!this.canCall) throw new Error('Calling is not allowed');
+    const roundConfig = this.getRoundConfig();
+    if (roundConfig.call?.guards) {
+      if (!this.resolveCheck(roundConfig.call?.guards, playerIdx)) {
+        throw new Error('User is not allowed to call');
+      }
     }
+
     this.currentRound.called.push(playerIdx);
   };
 
   get canDiscard() {
-    if (this.roundWon) return false;
-    const roundConfig = this.getRoundConfig();
-    return !!roundConfig.discard;
+    return this.canDo('canDiscard');
   }
 
   discard = (cards: Array<string>) => {
-    if (!this.canDiscard) {
-      throw new Error('Discarding not allowed');
-    }
+    if (!this.canDiscard) throw new Error('Discarding not allowed');
 
     const roundConfig = this.getRoundConfig();
     if (roundConfig.discard!.count !== cards.length) {
@@ -814,32 +1122,25 @@ export default class Game {
       );
     }
     this.currentRound.table = [...(this.currentRound.table || []), ...cards];
-    this.removeCardsFromHand(this.currentRound.currentPlayerIdx, cards);
+    this.removeCardsFromHand(cards);
   };
 
   get canPlace() {
-    if (this.roundWon) return false;
-    const roundConfig = this.getRoundConfig();
-    return !!roundConfig.place;
+    return this.canDo('canPlace');
   }
 
   place = (cards: Array<string>) => {
-    if (!this.canPlace) {
-      throw new Error('Placing not allowed');
-    }
+    if (!this.canPlace) throw new Error('Placing not allowed');
 
     const roundConfig = this.getRoundConfig();
     if (
       roundConfig.place!.guards &&
-      !resolveCheck(
-        roundConfig.place!.guards,
-        this.getDataProxy(this.playerIds[this.currentRound.currentPlayerIdx])
-      )
+      !this.resolveCheckCurrentUser(roundConfig.place!.guards)
     ) {
-      throw new Error(`The cards placed did not meet the required conditions`);
+      throw new Error('The cards placed did not meet the required conditions');
     }
     this.currentPlayer.collected.push(cards);
-    this.removeCardsFromHand(this.currentRound.currentPlayerIdx, cards);
+    this.removeCardsFromHand(cards);
   };
 
   done = () => {
@@ -852,14 +1153,11 @@ export default class Game {
       direction!
     );
     if (guards) {
-      while (
-        !resolveCheck(guards, this.getDataProxy(this.playerIds[nextPlayerIdx]))
-      ) {
+      while (!this.resolveCheck(guards, nextPlayerIdx)) {
         nextPlayerIdx = this.getNextPlayer(nextPlayerIdx, direction!);
       }
     }
-    this.calculateTurnPoints();
-    if (!this.roundComplete) {
+    if (!this.roundComplete && !this.subRoundComplete) {
       if (
         !this.currentPlayer.skipped &&
         this.currentPlayConditions.canPlayAfterSkip
@@ -876,14 +1174,32 @@ export default class Game {
       this.currentRound.currentPlayerIdx = nextPlayerIdx;
       this.currentPlayer.skipped = false;
     } else {
-      this.currentRound.winner = this.evaluateRoundWinner();
-      this.calculateGamePoints();
-      if (this.gameComplete) {
-        this.complete = true;
-        this.gameWinner = this.evaluateWinner();
-      } else {
-        this.newRound();
+      if (this.roundComplete) {
+        this.calculateRoundPoints();
+        this.currentRound.winner = this.evaluateRoundWinner();
+        if (this.gameComplete) {
+          this.calculateGamePoints();
+          this.complete = true;
+          this.gameWinner = this.evaluateWinner();
+        } else {
+          this.newRound();
+        }
+      } else if (this.subRoundComplete) {
+        this.currentRound.winner = this.evaluateSubRoundWinner();
+        this.newSubRound();
       }
     }
+  };
+
+  setPlayerContextFlag = (
+    flag: string,
+    value: IPlayerContextValue,
+    playerIdx?: number
+  ) => {
+    this.setContextFlag(flag, value, playerIdx);
+  };
+
+  setPlayerContextFlags = (context: IPlayerContext, playerIdx?: number) => {
+    this.setContextFlags(context, playerIdx);
   };
 }

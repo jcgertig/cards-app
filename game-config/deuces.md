@@ -20,7 +20,7 @@
 ## Custom Conditions
   - None
 ## Rounds
-  - 1:
+  - 0:
     - New Deck: true
     - Player to start: [player] [hand] [card(s)] [name(s)] [contains] [3D]
     - Player to start can play:

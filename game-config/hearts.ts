@@ -25,12 +25,14 @@ const baseRoundConfig: Pick<
         }
       },
       right: {
-        condition: '=',
-        left: {
-          unit: ['player', 'played', 'cards', 'suit']
-        },
-        right: {
-          unit: ['firstPlayer', 'played', 'cards', 'suit']
+        then: {
+          condition: '=',
+          left: {
+            unit: ['player', 'played', 'cards', 'suit']
+          },
+          right: {
+            unit: ['firstPlayer', 'played', 'cards', 'suit']
+          }
         }
       }
     }
@@ -63,21 +65,6 @@ const heartsConfig: IGameConfig = {
     count: 1,
     type: 'poker',
     suitPriority: ['H', 'S', 'D', 'C'],
-    cardPriority: [
-      'A',
-      'K',
-      'Q',
-      'J',
-      '10',
-      '9',
-      '8',
-      '7',
-      '6',
-      '5',
-      '4',
-      '3',
-      '2'
-    ],
     cardPointValues: {
       A: { H: 1, C: 0, S: 0, D: 0 },
       K: { H: 1, C: 0, S: 0, D: 0 },
@@ -94,7 +81,7 @@ const heartsConfig: IGameConfig = {
       '2': { H: 1, C: 0, S: 0, D: 0 }
     }
   },
-  customConditions: {
+  customValues: {
     HeartsBroken: {
       condition: 'contains',
       left: {
@@ -105,7 +92,7 @@ const heartsConfig: IGameConfig = {
   },
   rounds: {
     order: {
-      '1': {
+      '0': {
         ...baseRoundConfig,
         newDeck: true,
         firstPlayerConditions: {
@@ -145,21 +132,29 @@ const heartsConfig: IGameConfig = {
             left: {
               condition: '=',
               left: {
-                unit: ['customCondition', 'HeartsBroken']
+                unit: ['customValue', 'HeartsBroken']
               },
               right: false
             },
             right: {
-              condition: 'not contains',
-              left: {
-                unit: ['player', 'played', 'cards', 'suit']
-              },
-              right: 'H'
+              then: {
+                condition: 'not contains',
+                left: {
+                  unit: ['player', 'played', 'cards', 'suit']
+                },
+                right: 'H'
+              }
             }
           }
         },
         passCards: {
-          direction: ['left', 'right', 'across', 'none'],
+          order: {
+            '1': 'left',
+            '2': 'right',
+            '3': 'across',
+            '4': 'none'
+          },
+          loopOrder: true,
           count: 3
         }
       }
@@ -177,7 +172,7 @@ const heartsConfig: IGameConfig = {
       unit: ['all', 'player', 'points']
     }
   },
-  pointCalculation: {
+  roundPointCalculation: {
     condition: 'sum',
     right: {
       unit: ['player', 'collected', 'cards', 'points']

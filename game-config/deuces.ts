@@ -44,11 +44,13 @@ const baseRoundConfig: Pick<
             right: 0
           },
           right: {
-            condition: 'not contains',
-            left: {
-              unit: ['player', 'played', 'cards', 'unit']
-            },
-            right: '2'
+            then: {
+              condition: 'not contains',
+              left: {
+                unit: ['player', 'played', 'cards', 'unit']
+              },
+              right: '2'
+            }
           }
         }
       ]
@@ -67,7 +69,7 @@ const baseRoundConfig: Pick<
         right: 0
       },
       {
-        condition: 'not if',
+        condition: 'if',
         left: {
           condition: 'not contains',
           left: {
@@ -76,11 +78,14 @@ const baseRoundConfig: Pick<
           right: 0
         },
         right: {
-          condition: '=',
-          left: {
-            unit: ['player', 'skipped']
+          then: {
+            condition: '=',
+            left: {
+              unit: ['player', 'skipped']
+            },
+            right: false
           },
-          right: false
+          else: false
         }
       }
     ]
@@ -160,7 +165,7 @@ const deucesConfig: IGameConfig = {
   },
   rounds: {
     order: {
-      '1': {
+      '0': {
         ...baseRoundConfig,
         newDeck: true,
         firstPlayerConditions: {
@@ -204,11 +209,13 @@ const deucesConfig: IGameConfig = {
               right: 0
             },
             right: {
-              condition: 'not contains',
-              left: {
-                unit: ['player', 'played', 'cards', 'unit']
-              },
-              right: '2'
+              then: {
+                condition: 'not contains',
+                left: {
+                  unit: ['player', 'played', 'cards', 'unit']
+                },
+                right: '2'
+              }
             }
           }
         },

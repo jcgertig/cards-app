@@ -1,7 +1,7 @@
 import { IDeckConfig, IValidHands } from '../game-config';
 import { Card } from './deck';
 
-export function validPokerHand(cards: Array<string>, deckConfig: IDeckConfig) {
+export function validPokerHand(cards: Array<string>, deckConfig?: IDeckConfig) {
   if (cards.length < 5) {
     return false;
   } // have to have 5 cards
@@ -40,7 +40,7 @@ export function validPokerHand(cards: Array<string>, deckConfig: IDeckConfig) {
 export function validHand(
   cards: Array<string>,
   allowedHands: Array<IValidHands>,
-  deckConfig: IDeckConfig
+  deckConfig?: IDeckConfig
 ) {
   if (allowedHands.includes('any')) {
     return true;
