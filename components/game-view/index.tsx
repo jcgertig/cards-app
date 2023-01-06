@@ -8,6 +8,7 @@ import { getGameConfig } from '../../game-config';
 import { UserContext } from '../../lib/context/users';
 import Game from '../../lib/logic/game';
 import Loader from '../loader';
+import Hand from './hand';
 
 export type GameViewProps = {
   definition: IGame;
@@ -25,9 +26,11 @@ const GameView: React.FC<GameViewProps> = ({ definition }) => {
         game = new Game({
           config,
           playerIds: [
-            definition.owner?.id || undefined,
-            ...(definition.members?.map((i) => i.userId) || [])
-          ].filter((i) => typeof i === 'number') as Array<number>
+            typeof definition.owner?.id === 'number'
+              ? `${definition.owner?.id}`
+              : undefined,
+            ...(definition.members?.map((i) => `${i.userId}`) || [])
+          ].filter((i) => typeof i === 'number') as Array<string>
         });
       } else {
         game = new Game({
@@ -38,9 +41,9 @@ const GameView: React.FC<GameViewProps> = ({ definition }) => {
         });
       }
       if (game) {
-        game.addPlayer(2);
-        game.addPlayer(3);
-        game.addPlayer(4);
+        game.addPlayer('2');
+        game.addPlayer('3');
+        game.addPlayer('4');
         game.start();
       }
       setGame(game);
@@ -76,7 +79,21 @@ const GameView: React.FC<GameViewProps> = ({ definition }) => {
       </div>
     );
   }
-  return <div>Active Game</div>;
+
+  const gameData = game.asJSON();
+  const table = gameData.rounds[gameData.currentRoundIdx].table;
+  // const discards = gameData.rounds[gameData.currentRoundIdx].discards;
+  const playerData =
+    gameData.rounds[gameData.currentRoundIdx].players[game.currentPlayerIdx];
+
+  return (
+    <div>
+      <div>Table</div>
+      <Hand hand={table} deckConfig={gameData.config.deck} />
+      <div>Player</div>
+      <Hand hand={playerData.hand} deckConfig={gameData.config.deck} />
+    </div>
+  );
 };
 
 export default GameView;
